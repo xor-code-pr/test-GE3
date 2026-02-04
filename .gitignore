@@ -58,9 +58,6 @@ test_reports/
 coverage.xml
 .coverage.*
 
-# Screenshots
-screenshots/
-
 # Documentation builds
 docs/_build/
 

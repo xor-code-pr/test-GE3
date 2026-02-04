@@ -27,6 +27,13 @@ class TestRAGService(unittest.TestCase):
         self.assertEqual(service.config.model, "gpt-4")
         mock_openai.assert_called_once()
     
+    @patch('app.rag_service.OpenAI', None)
+    def test_init_no_openai(self):
+        """Test RAG service initialization without OpenAI installed."""
+        with self.assertRaises(ImportError) as context:
+            RAGService(self.config)
+        self.assertIn("OpenAI package not installed", str(context.exception))
+    
     def test_chunk_text_basic(self):
         """Test text chunking."""
         service = RAGService.__new__(RAGService)
@@ -88,6 +95,19 @@ class TestRAGService(unittest.TestCase):
         self.assertEqual(embedding[0], 0.1)
     
     @patch('app.rag_service.OpenAI')
+    def test_generate_embedding_error(self, mock_openai):
+        """Test embedding generation with error."""
+        mock_client = MagicMock()
+        mock_client.embeddings.create.side_effect = Exception("API Error")
+        mock_openai.return_value = mock_client
+        
+        service = RAGService(self.config)
+        
+        with self.assertRaises(Exception) as context:
+            service.generate_embedding("test text")
+        self.assertIn("API Error", str(context.exception))
+    
+    @patch('app.rag_service.OpenAI')
     def test_generate_embeddings_batch(self, mock_openai):
         """Test batch embedding generation."""
         mock_client = MagicMock()
@@ -104,6 +124,19 @@ class TestRAGService(unittest.TestCase):
         
         self.assertEqual(len(embeddings), 2)
         self.assertEqual(embeddings[0], [0.1, 0.2])
+    
+    @patch('app.rag_service.OpenAI')
+    def test_generate_embeddings_batch_error(self, mock_openai):
+        """Test batch embedding generation with error."""
+        mock_client = MagicMock()
+        mock_client.embeddings.create.side_effect = Exception("Batch API Error")
+        mock_openai.return_value = mock_client
+        
+        service = RAGService(self.config)
+        
+        with self.assertRaises(Exception) as context:
+            service.generate_embeddings_batch(["text1", "text2"])
+        self.assertIn("Batch API Error", str(context.exception))
     
     def test_retrieve_relevant_chunks(self):
         """Test chunk retrieval."""
@@ -141,6 +174,23 @@ class TestRAGService(unittest.TestCase):
         self.assertIsInstance(response, RAGResponse)
         self.assertEqual(response.answer, "Test answer")
         self.assertEqual(len(response.sources), 1)
+    
+    @patch('app.rag_service.OpenAI')
+    def test_generate_answer_error(self, mock_openai):
+        """Test answer generation with error."""
+        mock_client = MagicMock()
+        mock_client.chat.completions.create.side_effect = Exception("GPT Error")
+        mock_openai.return_value = mock_client
+        
+        service = RAGService(self.config)
+        
+        chunks = [
+            Chunk("1", "doc1", "Context text", metadata={"source": "doc1"})
+        ]
+        
+        with self.assertRaises(Exception) as context:
+            service.generate_answer("Question?", chunks)
+        self.assertIn("GPT Error", str(context.exception))
     
     @patch('app.rag_service.OpenAI')
     def test_process_query(self, mock_openai):
