@@ -30,6 +30,24 @@ class KnowledgeBaseManager:
         self.search_service = search_service
         self.knowledge_bases = {}  # In-memory storage (use database in production)
         self.users = {}  # In-memory storage (use database in production)
+        
+        # Initialize SharePoint service if enabled
+        self.sharepoint_service = None
+        if config.azure.enable_sharepoint_sync and config.azure.sharepoint_site_url:
+            try:
+                from .sharepoint_service import SharePointService, SharePointConfig
+                sp_config = SharePointConfig(
+                    site_url=config.azure.sharepoint_site_url,
+                    tenant_id=config.azure.sharepoint_tenant_id or config.azure.tenant_id,
+                    client_id=config.azure.sharepoint_client_id,
+                    client_secret=config.azure.sharepoint_client_secret,
+                    use_managed_identity=config.azure.use_managed_identity
+                )
+                self.sharepoint_service = SharePointService(sp_config)
+                logger.info("SharePoint integration enabled")
+            except Exception as e:
+                logger.warning(f"SharePoint integration not available: {e}")
+                self.sharepoint_service = None
     
     def create_knowledge_base(
         self,
@@ -73,6 +91,37 @@ class KnowledgeBaseManager:
             search_index_name=index_name,
             access_policies=access_policies or []
         )
+        
+        # Create SharePoint library and sync permissions if enabled
+        if self.sharepoint_service:
+            try:
+                sp_site = self.sharepoint_service.create_site_library(
+                    kb_id=kb_id,
+                    kb_name=name,
+                    description=description
+                )
+                kb.sharepoint_site_id = sp_site.site_id
+                kb.sharepoint_library_name = sp_site.library_name
+                
+                # Sync permissions to SharePoint
+                sync_success = self._sync_permissions_to_sharepoint(kb)
+                
+                # Only enable sync if both library creation and permission sync succeeded
+                kb.sharepoint_sync_enabled = sync_success
+                
+                if sync_success:
+                    logger.info(f"Created SharePoint library for KB: {kb_id}")
+                else:
+                    logger.warning(
+                        f"SharePoint library created but permission sync failed for KB: {kb_id}. "
+                        f"Library exists at: {sp_site.site_url}. "
+                        f"Permissions can be synced later by updating access policies or manually in SharePoint."
+                    )
+                    
+            except Exception as e:
+                logger.warning(f"Could not create SharePoint library: {e}")
+                # Don't set SharePoint fields if creation failed
+                kb.sharepoint_sync_enabled = False
         
         self.knowledge_bases[kb_id] = kb
         logger.info(f"Created knowledge base: {name} (ID: {kb_id})")
@@ -120,6 +169,17 @@ class KnowledgeBaseManager:
         
         kb.access_policies = access_policies
         kb.updated_at = datetime.utcnow()
+        
+        # Sync permissions to SharePoint if enabled
+        if self.sharepoint_service and kb.sharepoint_sync_enabled:
+            try:
+                sync_success = self._sync_permissions_to_sharepoint(kb)
+                if sync_success:
+                    kb.last_sharepoint_sync = datetime.utcnow()
+                else:
+                    logger.warning(f"SharePoint permission sync failed for KB: {kb_id}")
+            except Exception as e:
+                logger.warning(f"Could not sync permissions to SharePoint: {e}")
         
         logger.info(f"Updated access policies for KB: {kb_id}")
         return kb
@@ -233,3 +293,121 @@ class KnowledgeBaseManager:
             query=query,
             filters=f"kb_id eq '{kb_id}'"
         )
+    
+    def _sync_permissions_to_sharepoint(self, kb: KnowledgeBase) -> bool:
+        """
+        Synchronize KB access policies to SharePoint permissions.
+        
+        Args:
+            kb: Knowledge base with access policies
+            
+        Returns:
+            True if sync was successful, False otherwise
+        """
+        if not self.sharepoint_service or not kb.sharepoint_library_name:
+            return False
+        
+        # Prepare Azure AD groups
+        azure_ad_groups = []
+        all_content_managers = []
+        
+        for policy in kb.access_policies:
+            azure_ad_groups.append({
+                'group_id': policy.azure_ad_group.group_id,
+                'name': policy.azure_ad_group.name,
+                'object_id': policy.azure_ad_group.object_id
+            })
+            all_content_managers.extend(policy.content_managers)
+        
+        # Add admin users as content managers
+        all_content_managers.extend(self.config.admin_users)
+        
+        # Remove duplicates
+        all_content_managers = list(set(all_content_managers))
+        
+        # Sync to SharePoint and return result
+        sync_success = self.sharepoint_service.sync_permissions(
+            library_name=kb.sharepoint_library_name,
+            azure_ad_groups=azure_ad_groups,
+            content_managers=all_content_managers,
+            owner_id=kb.owner_id
+        )
+        
+        if sync_success:
+            logger.info(f"Synced permissions to SharePoint for KB: {kb.kb_id}")
+        else:
+            logger.warning(f"Failed to sync permissions to SharePoint for KB: {kb.kb_id}")
+        
+        return sync_success
+    
+    def import_from_sharepoint(
+        self,
+        kb_id: str,
+        imported_by: str
+    ) -> List[Document]:
+        """
+        Import documents from SharePoint to the knowledge base.
+        
+        Args:
+            kb_id: Knowledge base ID
+            imported_by: User ID performing the import
+            
+        Returns:
+            List of imported documents
+        """
+        kb = self.knowledge_bases.get(kb_id)
+        if not kb:
+            raise ValueError(f"Knowledge base not found: {kb_id}")
+        
+        if not self.sharepoint_service or not kb.sharepoint_library_name:
+            logger.warning("SharePoint integration not enabled for this KB")
+            return []
+        
+        # Check if user is authorized
+        if not self.is_content_manager(kb_id, imported_by):
+            raise PermissionError(f"User {imported_by} is not authorized to import to KB {kb_id}")
+        
+        imported_documents = []
+        
+        try:
+            # Get list of documents from SharePoint
+            sp_documents = self.sharepoint_service.import_documents_from_sharepoint(
+                library_name=kb.sharepoint_library_name
+            )
+            
+            for sp_doc in sp_documents:
+                try:
+                    # Download document content
+                    content = self.sharepoint_service.download_document(
+                        library_name=kb.sharepoint_library_name,
+                        file_name=sp_doc['filename']
+                    )
+                    
+                    if content:
+                        # Upload to knowledge base
+                        doc = self.upload_document(
+                            kb_id=kb_id,
+                            filename=sp_doc['filename'],
+                            file_data=content,
+                            content_type='application/octet-stream',
+                            uploaded_by=imported_by,
+                            metadata={
+                                'source': 'sharepoint',
+                                'sharepoint_url': sp_doc.get('url', ''),
+                                'original_author': sp_doc.get('author', 'Unknown')
+                            }
+                        )
+                        imported_documents.append(doc)
+                        logger.info(f"Imported document from SharePoint: {sp_doc['filename']}")
+                except Exception as e:
+                    logger.error(f"Failed to import document {sp_doc['filename']}: {e}")
+            
+            # Update last sync time
+            kb.last_sharepoint_sync = datetime.utcnow()
+            
+            logger.info(f"Imported {len(imported_documents)} documents from SharePoint to KB {kb_id}")
+            
+        except Exception as e:
+            logger.error(f"Failed to import from SharePoint: {e}")
+        
+        return imported_documents
