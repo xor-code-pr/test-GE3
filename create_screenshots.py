@@ -10,8 +10,8 @@ import os
 
 def create_screenshot(filename, title, content_lines, width=1920, height=1080):
     """Create a mockup screenshot with title and content."""
-    # Create image with white background
-    img = Image.new('RGB', (width, height), color='white')
+    # Create image with light gray background
+    img = Image.new('RGB', (width, height), color='#f5f5f5')
     draw = ImageDraw.Draw(img)
     
     # Try to use a default font, fall back to default if not available
@@ -19,34 +19,71 @@ def create_screenshot(filename, title, content_lines, width=1920, height=1080):
         title_font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 48)
         header_font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 32)
         text_font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 24)
+        small_font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 18)
     except:
         title_font = ImageFont.load_default()
         header_font = ImageFont.load_default()
         text_font = ImageFont.load_default()
+        small_font = ImageFont.load_default()
     
     # Draw header bar (Bootstrap primary color)
     draw.rectangle([0, 0, width, 100], fill='#0d6efd')
     
+    # Draw navigation items
+    nav_items = ['Dashboard', 'Knowledge Bases', 'Search', 'Profile']
+    nav_x = width - 600
+    for item in nav_items:
+        draw.text((nav_x, 35), item, fill='white', font=small_font)
+        nav_x += 140
+    
     # Draw title in header
     draw.text((50, 30), title, fill='white', font=title_font)
     
+    # Draw main content area with white background
+    draw.rectangle([40, 130, width-40, height-40], fill='white', outline='#dee2e6', width=2)
+    
     # Draw content
-    y_position = 150
+    y_position = 170
     for line in content_lines:
         if line.startswith('## '):
             # Section header
-            draw.text((50, y_position), line[3:], fill='#212529', font=header_font)
-            y_position += 60
+            draw.rectangle([60, y_position-5, width-60, y_position+45], fill='#e9ecef')
+            draw.text((80, y_position), line[3:], fill='#212529', font=header_font)
+            y_position += 70
         elif line.startswith('- '):
             # Bullet point
-            draw.text((80, y_position), '• ' + line[2:], fill='#495057', font=text_font)
-            y_position += 40
+            draw.ellipse([100, y_position+5, 115, y_position+20], fill='#0d6efd')
+            draw.text((130, y_position), line[2:], fill='#495057', font=text_font)
+            y_position += 45
+        elif line.startswith('[') and line.endswith(']'):
+            # Button
+            btn_text = line[1:-1]
+            btn_width = len(btn_text) * 15 + 40
+            draw.rectangle([80, y_position, 80+btn_width, y_position+45], fill='#0d6efd', outline='#0a58ca', width=2)
+            draw.text((100, y_position+10), btn_text, fill='white', font=text_font)
+            y_position += 65
+        elif line.startswith('Input:') or line.startswith('Question:') or line.startswith('Search:'):
+            # Input field
+            draw.text((80, y_position), line, fill='#212529', font=text_font)
+            y_position += 35
+            draw.rectangle([80, y_position, width-100, y_position+50], fill='white', outline='#ced4da', width=2)
+            y_position += 70
         elif line.strip() == '':
             y_position += 20
+        elif line.startswith('Card:'):
+            # Card component
+            draw.rectangle([80, y_position, width-100, y_position+150], fill='#ffffff', outline='#dee2e6', width=2)
+            draw.rectangle([80, y_position, width-100, y_position+50], fill='#0d6efd')
+            draw.text((100, y_position+10), line[6:], fill='white', font=header_font)
+            y_position += 170
         else:
             # Regular text
-            draw.text((50, y_position), line, fill='#212529', font=text_font)
+            draw.text((80, y_position), line, fill='#495057', font=text_font)
             y_position += 40
+    
+    # Draw footer
+    draw.rectangle([0, height-50, width, height], fill='#343a40')
+    draw.text((50, height-35), '© 2024 Knowledge Management System | Powered by Azure & OpenAI', fill='#adb5bd', font=small_font)
     
     # Save image
     filepath = os.path.join('screenshots', filename)
@@ -63,178 +100,163 @@ def main():
     # 1. Home Page
     create_screenshot(
         '01_home.png',
-        'Knowledge Management System - Home',
+        'Knowledge Management System',
         [
-            '## Welcome to Knowledge Management System',
+            '## Welcome to AI-Powered Knowledge Management',
             '',
-            'RAG-Powered Knowledge Base with Azure Integration',
+            'Leverage RAG technology for intelligent document search and Q&A',
             '',
-            '## Features',
-            '- Create Knowledge Bases with granular access control',
-            '- AI-Powered Q&A using GPT-4 and semantic search',
-            '- Secure & Scalable Azure infrastructure',
-            '- Automatic document indexing',
-            '- Content manager roles and permissions',
+            '## Key Features',
+            '- Create and manage knowledge bases with granular access control',
+            '- AI-powered semantic search using OpenAI embeddings',
+            '- GPT-4 powered question answering with source citations',
+            '- Secure Azure infrastructure with managed identity',
+            '- Automatic document indexing and chunking',
             '',
-            '[Get Started]   [Learn More]'
+            '[Get Started]',
+            '[View Documentation]'
         ]
     )
     
     # 2. Login Page
     create_screenshot(
         '02_login.png',
-        'Knowledge Management System - Login',
+        'Login - Knowledge Management System',
         [
-            '## Login',
+            '## Login to Your Account',
             '',
-            'User ID: [________________]',
+            'Input: User ID',
             '',
-            'Email:   [________________]',
+            'Input: Email Address',
             '',
-            '[Login Button]',
+            '[Login]',
             '',
-            'Demo Mode: Enter any user ID and email to login.',
-            'In production, this uses Azure AD authentication.'
+            'This system uses Azure AD authentication in production.',
+            'Demo mode allows login with any user ID and email.'
         ]
     )
     
     # 3. Dashboard
     create_screenshot(
         '03_dashboard.png',
-        'Knowledge Management System - Dashboard',
+        'Dashboard - Knowledge Management System',
         [
-            '## Dashboard',
-            'Welcome, testuser!  [Admin Badge]',
+            '## Your Knowledge Bases',
             '',
             '[+ Create New Knowledge Base]',
             '',
-            '## Your Knowledge Bases',
+            'Card: Engineering Documentation',
+            'Card: Product Specifications',
+            'Card: Training Materials',
             '',
-            '┌─────────────────────────────────────┐',
-            '│ Engineering Documentation           │',
-            '│ Documentation for engineering team  │',
-            '│ Owner: admin@example.com            │',
-            '│ Created: 2024-02-04                 │',
-            '│ [View]                              │',
-            '└─────────────────────────────────────┘'
+            '## Recent Activity',
+            '- Document uploaded to Engineering Documentation (2 hours ago)',
+            '- New KB created: Training Materials (Yesterday)',
+            '- 15 questions answered today'
         ]
     )
     
     # 4. Create KB
     create_screenshot(
         '04_create_kb.png',
-        'Knowledge Management System - Create KB',
+        'Create Knowledge Base',
         [
             '## Create New Knowledge Base',
             '',
-            'Knowledge Base Name:',
-            '[_________________________________]',
+            'Input: Knowledge Base Name',
             '',
-            'Description:',
-            '[_________________________________]',
-            '[_________________________________]',
-            '[_________________________________]',
+            'Input: Description (Optional)',
             '',
-            'Access Control:',
-            'As the owner, you have full access.',
-            'Configure additional access policies after creation.',
+            '## Access Control',
+            'Configure Azure AD groups and content managers',
             '',
-            '[Create Knowledge Base]  [Cancel]'
+            '[Create Knowledge Base]',
+            '[Cancel]'
         ]
     )
     
     # 5. KB View - RAG Q&A
     create_screenshot(
         '05_kb_view_qa.png',
-        'KB: Engineering Docs - Ask Question (RAG)',
+        'Engineering Docs - Ask Question (RAG)',
         [
             '## Ask a Question',
-            'Get AI-powered answers based on documents in this knowledge base.',
+            'Get AI-powered answers based on your documents',
             '',
-            'Question:',
-            '[_________________________________________________]',
-            '[_________________________________________________]',
+            'Question: What is our microservices architecture?',
             '',
-            '[Ask]',
+            '[Ask Question]',
             '',
-            '## Answer:',
+            '## Answer (Generated by GPT-4)',
             'Based on the documentation, the microservices architecture',
-            'uses Docker containers orchestrated by Kubernetes...',
+            'uses Docker containers orchestrated by Kubernetes. Each',
+            'service is independently deployable and scalable...',
             '',
-            '## Sources:',
-            '• Source 1: architecture-overview.pdf (Chunk 3)',
-            '• Source 2: deployment-guide.md (Chunk 7)',
-            '',
-            'Confidence: 0.95'
+            '## Sources',
+            '- architecture-overview.pdf (Confidence: 0.95)',
+            '- deployment-guide.md (Confidence: 0.87)'
         ]
     )
     
     # 6. KB View - Upload
     create_screenshot(
         '06_kb_upload.png',
-        'KB: Engineering Docs - Upload Documents',
+        'Engineering Docs - Upload Documents',
         [
             '## Upload Documents',
-            'Upload documents to this knowledge base.',
-            'They will be automatically indexed.',
+            'Documents are automatically indexed for RAG',
             '',
-            'Select Files:',
-            '[Choose Files]  [Upload]',
+            '[Choose Files]',
+            '[Upload Selected Files]',
             '',
-            'Supported formats: PDF, DOCX, TXT, MD, PPTX, XLSX',
+            'Supported: PDF, DOCX, TXT, MD, PPTX, XLSX',
             '',
-            'Progress:',
-            '[████████████████████░░░░░░░] 75%',
-            '',
-            '✓ Successfully uploaded: architecture.pdf',
-            '✓ Successfully uploaded: deployment-guide.md',
-            '⏳ Uploading: api-documentation.docx...'
+            '## Recent Uploads',
+            '- architecture.pdf (2.4 MB) - Uploaded successfully',
+            '- api-docs.md (124 KB) - Uploaded successfully',
+            '- deployment-guide.docx (1.8 MB) - Processing...'
         ]
     )
     
     # 7. KB View - Search
     create_screenshot(
         '07_kb_search.png',
-        'KB: Engineering Docs - Search',
+        'Engineering Docs - Search',
         [
             '## Search Documents',
             '',
-            'Search Query: [microservices________] [Search]',
+            'Search: microservices deployment',
             '',
-            '## Search Results:',
+            '## Search Results',
             '',
-            '┌─────────────────────────────────────┐',
-            '│ architecture-overview.pdf           │',
-            '│ Score: 0.95                         │',
-            '│ Document ID: doc-12345              │',
-            '└─────────────────────────────────────┘',
+            'Card: architecture-overview.pdf',
+            'Card: deployment-guide.md',
+            'Card: kubernetes-setup.docx',
             '',
-            '┌─────────────────────────────────────┐',
-            '│ deployment-guide.md                 │',
-            '│ Score: 0.87                         │',
-            '│ Document ID: doc-12346              │',
-            '└─────────────────────────────────────┘'
+            'Found 3 documents matching your query'
         ]
     )
     
     # 8. KB View - Information
     create_screenshot(
         '08_kb_info.png',
-        'KB: Engineering Docs - Information',
+        'Engineering Docs - Information',
         [
             '## Knowledge Base Information',
             '',
-            'KB ID:              kb-f3d8a9b2c1e0',
-            'Name:               Engineering Documentation',
-            'Description:        Documentation for engineering team',
-            'Owner:              admin@example.com',
-            'Blob Container:     kb-f3d8a9b2c1e0',
-            'Search Index:       kb-index-f3d8a9b2c1e0',
-            'Created:            2024-02-04 10:30:00',
-            'Last Updated:       2024-02-04 15:45:00',
+            'KB ID: kb-f3d8a9b2c1e0',
+            'Name: Engineering Documentation',
+            'Owner: admin@example.com',
+            'Created: 2024-02-04',
             '',
-            '## Access Policies:',
-            '- Engineering Team (Read access)',
+            '## Storage Details',
+            'Blob Container: kb-f3d8a9b2c1e0',
+            'Search Index: kb-index-f3d8a9b2c1e0',
+            'Total Documents: 24',
+            'Total Size: 45.8 MB',
+            '',
+            '## Access Policies',
+            '- Engineering Team (Read)',
             '  Content Managers: lead@example.com'
         ]
     )

@@ -51,12 +51,11 @@ logs/
 # Testing
 .pytest_cache/
 .coverage
-htmlcov/
 .tox/
 .mypy_cache/
-test_reports/
 coverage.xml
 .coverage.*
+# Keep test_reports and htmlcov for PR review
 
 # Documentation builds
 docs/_build/
