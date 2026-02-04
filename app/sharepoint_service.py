@@ -120,6 +120,9 @@ class SharePointService:
             web = client.web.get().execute_query()
             
             # Create a new document library
+            # Note: Using first 8 chars of kb_id for library internal name
+            # Since kb_id is a UUID, this provides reasonable uniqueness
+            # For absolute uniqueness, consider using full kb_id or a hash
             library_name = f"KB_{kb_id[:8]}"  # Shortened ID for library internal name
             library_title = kb_name  # Full name for display title
             

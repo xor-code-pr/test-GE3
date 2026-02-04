@@ -313,7 +313,7 @@ AZURE_CLIENT_SECRET=your_client_secret  # Only for local dev
 
 # SharePoint Integration
 ENABLE_SHAREPOINT_SYNC=true
-SHAREPOINT_SITE_URL=https://yourtenant.sharepoint.com/sites/KnowledgeManagement
+SHAREPOINT_SITE_URL=https://YOURTENANT.sharepoint.com/sites/KnowledgeManagement  # Replace YOURTENANT with your tenant name
 SHAREPOINT_CLIENT_ID=your_client_id  # Can reuse AZURE_CLIENT_ID
 SHAREPOINT_CLIENT_SECRET=your_client_secret  # Can reuse AZURE_CLIENT_SECRET
 
@@ -540,6 +540,29 @@ print(f"Imported {len(documents)} documents from SharePoint")
 for doc in documents:
     print(f"  - {doc.filename} ({doc.size_bytes} bytes)")
 ```
+
+### Handling Permission Sync Failures
+
+If permission synchronization fails during KB creation, the SharePoint library will be created but permissions won't be synced. In this case:
+
+1. **The KB metadata will indicate the issue**:
+   - `sharepoint_sync_enabled = False`
+   - `sharepoint_library_name` will still be set (library exists)
+   - Logs will contain error details
+
+2. **To retry permission sync**:
+   ```python
+   # Update access policies - this will trigger a permission sync
+   app.kb_manager.update_access_policies(
+       kb_id=kb.kb_id,
+       access_policies=kb.access_policies  # Use existing policies
+   )
+   ```
+
+3. **Manual permission setup in SharePoint** (if needed):
+   - Navigate to the SharePoint library
+   - Click Settings > Library Settings > Permissions
+   - Grant appropriate permissions to users and groups
 
 ## Indexing Schema
 

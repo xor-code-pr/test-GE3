@@ -112,7 +112,11 @@ class KnowledgeBaseManager:
                 if sync_success:
                     logger.info(f"Created SharePoint library for KB: {kb_id}")
                 else:
-                    logger.warning(f"SharePoint library created but permission sync failed for KB: {kb_id}")
+                    logger.warning(
+                        f"SharePoint library created but permission sync failed for KB: {kb_id}. "
+                        f"Library exists at: {sp_site.site_url}. "
+                        f"Permissions can be synced later by updating access policies or manually in SharePoint."
+                    )
                     
             except Exception as e:
                 logger.warning(f"Could not create SharePoint library: {e}")
