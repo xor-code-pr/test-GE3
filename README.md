@@ -1,6 +1,6 @@
 # Knowledge Management Application
 
-A comprehensive Knowledge Management System built on Azure services that enables organizations to create and manage knowledge bases (KBs) with granular access control, automatic document indexing, and powerful search capabilities.
+A comprehensive Knowledge Management System built on Azure services that enables organizations to create and manage knowledge bases (KBs) with granular access control, automatic document indexing, powerful search capabilities, and SharePoint integration.
 
 ## Overview
 
@@ -11,6 +11,7 @@ This application provides:
 - **Admin Management**: Maintain a list of admin users who are default content managers for all KBs
 - **Azure Blob Storage Integration**: Store all uploaded files in dedicated containers
 - **Azure AI Search Integration**: Automatically index documents for fast, full-text search
+- **SharePoint Integration**: Synchronize permissions with SharePoint and import documents from SharePoint libraries
 - **Programmatic Index Management**: All indexer and index operations are handled programmatically
 
 ## Features
@@ -19,6 +20,7 @@ This application provides:
 - Create isolated knowledge bases with dedicated storage and search indexes
 - Each KB has its own Azure Blob Storage container
 - Each KB has its own Azure AI Search index
+- Optional SharePoint document library for each KB
 - Automatic indexer setup for document processing
 
 ### 2. Access Control
@@ -26,14 +28,22 @@ This application provides:
 - **Content Managers**: Designate specific users within Azure AD groups as content managers
 - **Admin Users**: Configure a list of admin users who are default content managers for all KBs
 - **Owner Permissions**: KB owners have full control over their knowledge bases
+- **SharePoint Permission Sync**: Automatically synchronize KB access policies with SharePoint permissions
 
 ### 3. Document Management
 - Upload documents to knowledge bases
 - Automatic storage in Azure Blob Storage
 - Automatic indexing with Azure AI Search
+- Import documents from SharePoint libraries
 - Support for multiple file types (PDF, DOCX, TXT, MD, PPTX, XLSX, etc.)
 
-### 4. Search Capabilities
+### 4. SharePoint Integration
+- **Automatic Library Creation**: Create SharePoint document libraries for each KB
+- **Permission Synchronization**: Sync KB access policies to SharePoint permissions
+- **Document Import**: Import existing documents from SharePoint to Azure Blob Storage
+- **Bidirectional Access**: Users can access documents through both the app and SharePoint
+
+### 5. Search Capabilities
 - Full-text search across all documents in a knowledge base
 - Filter results by KB, content type, uploader, and date
 - Relevance scoring and highlighting
@@ -42,12 +52,32 @@ This application provides:
 ## Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                   Knowledge Management App                   │
-├─────────────────────────────────────────────────────────────┤
-│                                                               │
-│  ┌────────────────┐  ┌──────────────┐  ┌─────────────────┐ │
-│  │  KB Manager    │  │ Blob Storage │  │  Search Service │ │
+┌─────────────────────────────────────────────────────────────────┐
+│                   Knowledge Management App                       │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                   │
+│  ┌────────────────┐  ┌──────────────┐  ┌─────────────────┐     │
+│  │  KB Manager    │  │ Blob Storage │  │  Search Service │     │
+│  │                │  │   Service    │  │                 │     │
+│  └───────┬────────┘  └──────┬───────┘  └────────┬────────┘     │
+│          │                  │                     │              │
+│          │           ┌──────▼──────┐              │              │
+│          │           │  SharePoint │              │              │
+│          │           │   Service   │              │              │
+│          │           └──────┬──────┘              │              │
+└──────────┼──────────────────┼─────────────────────┼──────────────┘
+           │                  │                     │
+           │                  │                     │
+    ┌──────▼──────┐    ┌──────▼──────┐     ┌───────▼────────┐
+    │   Azure AD  │    │  Azure Blob │     │  Azure AI      │
+    │             │    │   Storage   │     │  Search        │
+    └─────────────┘    └──────┬──────┘     └────────────────┘
+                              │
+                       ┌──────▼──────────┐
+                       │   SharePoint    │
+                       │     Online      │
+                       └─────────────────┘
+```
 │  │                │  │   Service    │  │                 │ │
 │  └───────┬────────┘  └──────┬───────┘  └────────┬────────┘ │
 │          │                  │                     │          │
@@ -217,6 +247,12 @@ AZURE_TENANT_ID=your_tenant_id
 AZURE_CLIENT_ID=your_client_id  # Not needed with managed identity
 AZURE_CLIENT_SECRET=your_client_secret  # Not needed with managed identity
 
+# SharePoint Integration (Optional)
+ENABLE_SHAREPOINT_SYNC=true
+SHAREPOINT_SITE_URL=https://yourtenant.sharepoint.com/sites/YourSite
+SHAREPOINT_CLIENT_ID=your_sharepoint_client_id  # Can reuse AZURE_CLIENT_ID
+SHAREPOINT_CLIENT_SECRET=your_sharepoint_client_secret  # Can reuse AZURE_CLIENT_SECRET
+
 # Managed Identity (recommended for production)
 USE_MANAGED_IDENTITY=true
 
@@ -226,6 +262,38 @@ DATABASE_CONNECTION_STRING=sqlite:///knowledge_base.db
 # Application Settings
 MAX_FILE_SIZE_MB=100
 ```
+
+### SharePoint Integration Setup
+
+To enable SharePoint integration:
+
+1. **Register Application in Azure AD**:
+   - The same Azure AD app registration can be used for both Azure services and SharePoint
+   - Ensure the following API permissions are granted:
+     - `Sites.ReadWrite.All` - To create and manage SharePoint sites
+     - `Sites.Manage.All` - To manage SharePoint permissions
+     - `User.Read.All` - To read user information
+
+2. **Configure SharePoint Site**:
+   - Create or identify a SharePoint site for KB document libraries
+   - Ensure the application has necessary permissions on the site
+
+3. **Enable in Configuration**:
+   ```bash
+   ENABLE_SHAREPOINT_SYNC=true
+   SHAREPOINT_SITE_URL=https://yourtenant.sharepoint.com/sites/YourSite
+   ```
+
+4. **Permission Synchronization**:
+   - When a KB is created, a corresponding SharePoint library is automatically created
+   - KB access policies are automatically synced to SharePoint permissions
+   - Updates to access policies trigger permission sync to SharePoint
+
+5. **Document Import**:
+   ```python
+   # Import documents from SharePoint to KB
+   documents = app.import_from_sharepoint(kb_id, imported_by="admin@example.com")
+   ```
 
 ### Usage Example
 

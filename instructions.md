@@ -1,17 +1,19 @@
 # Knowledge Management Application - Deployment and Configuration Guide
 
-This comprehensive guide provides detailed instructions for deploying and configuring the Knowledge Management Application in Azure.
+This comprehensive guide provides detailed instructions for deploying and configuring the Knowledge Management Application in Azure with SharePoint integration.
 
 ## Table of Contents
 
 1. [Prerequisites](#prerequisites)
 2. [Azure Resource Setup](#azure-resource-setup)
-3. [Application Deployment](#application-deployment)
-4. [Configuration](#configuration)
-5. [Access Control Setup](#access-control-setup)
-6. [Indexing Schema](#indexing-schema)
-7. [Operations Guide](#operations-guide)
-8. [Troubleshooting](#troubleshooting)
+3. [SharePoint Setup](#sharepoint-setup)
+4. [Application Deployment](#application-deployment)
+5. [Configuration](#configuration)
+6. [Access Control Setup](#access-control-setup)
+7. [SharePoint Permission Synchronization](#sharepoint-permission-synchronization)
+8. [Indexing Schema](#indexing-schema)
+9. [Operations Guide](#operations-guide)
+10. [Troubleshooting](#troubleshooting)
 
 ## Prerequisites
 
@@ -26,12 +28,14 @@ This comprehensive guide provides detailed instructions for deploying and config
 - Active Azure subscription
 - Sufficient permissions to create resources
 - Azure AD admin access for setting up application registrations
+- SharePoint Online admin access (for SharePoint integration)
 
 ### Required Azure Services
 
 1. Azure Storage Account
 2. Azure AI Search Service
 3. Azure AD (Entra ID) tenant
+4. SharePoint Online (optional, for SharePoint integration)
 
 ## Azure Resource Setup
 
@@ -114,8 +118,67 @@ az ad app permission add \
   --api 00000003-0000-0000-c000-000000000000 \
   --api-permissions 7ab1d382-f21e-4acd-a863-ba3e13f7da61=Role
 
+# Grant SharePoint API permissions
+# Sites.ReadWrite.All (for SharePoint site management)
+az ad app permission add \
+  --id $APP_ID \
+  --api 00000003-0000-0003-c000-000000000000 \
+  --api-permissions 9492366f-7969-46a4-8d15-ed1a20078fff=Role
+
+# Sites.Manage.All (for SharePoint permission management)
+az ad app permission add \
+  --id $APP_ID \
+  --api 00000003-0000-0003-c000-000000000000 \
+  --api-permissions 0c0bf378-bf22-4481-8f81-9e89a9b4960a=Role
+
 # Admin consent (requires admin privileges)
 az ad app permission admin-consent --id $APP_ID
+```
+
+## SharePoint Setup
+
+### 1. Configure SharePoint Site
+
+```bash
+# Create a SharePoint site for the Knowledge Management app
+# This can be done via SharePoint admin center or using PnP PowerShell
+
+# Option 1: Using SharePoint Admin Center
+# Navigate to: https://yourtenant-admin.sharepoint.com
+# Create a new site or use an existing site
+
+# Option 2: Using PnP PowerShell
+Install-Module -Name PnP.PowerShell -Force -AllowClobber
+Connect-PnPOnline -Url "https://yourtenant-admin.sharepoint.com" -Interactive
+
+# Create new site collection for Knowledge Management
+New-PnPSite -Type TeamSite `
+  -Title "Knowledge Management" `
+  -Alias "KnowledgeManagement" `
+  -Description "Document libraries for Knowledge Bases"
+
+# Record the site URL for configuration
+# Example: https://yourtenant.sharepoint.com/sites/KnowledgeManagement
+```
+
+### 2. Grant Application Permissions to SharePoint
+
+```bash
+# Grant the Azure AD application access to SharePoint
+# This is done through Azure AD App Registration permissions (already configured above)
+
+# Verify application has access to SharePoint
+# Test by accessing: https://yourtenant.sharepoint.com/_layouts/15/appinv.aspx
+# Look up the app by Client ID and verify permissions
+```
+
+### 3. Configure SharePoint Security
+
+```bash
+# Ensure the SharePoint site allows app-only access
+# Navigate to SharePoint Admin Center > Sites > Active Sites
+# Select your site > Policies > App permissions
+# Verify the application is listed with appropriate permissions
 ```
 
 ## Application Deployment
@@ -222,7 +285,9 @@ az webapp config appsettings set \
     AZURE_TENANT_ID="$TENANT_ID" \
     USE_MANAGED_IDENTITY="true" \
     DATABASE_CONNECTION_STRING="sqlite:///data/knowledge_base.db" \
-    MAX_FILE_SIZE_MB="100"
+    MAX_FILE_SIZE_MB="100" \
+    ENABLE_SHAREPOINT_SYNC="true" \
+    SHAREPOINT_SITE_URL="https://yourtenant.sharepoint.com/sites/KnowledgeManagement"
 ```
 
 #### For Local Development:
@@ -245,6 +310,12 @@ AZURE_SEARCH_ADMIN_KEY=your_search_key  # Only for local dev
 AZURE_TENANT_ID=your_tenant_id
 AZURE_CLIENT_ID=your_client_id  # Only for local dev
 AZURE_CLIENT_SECRET=your_client_secret  # Only for local dev
+
+# SharePoint Integration
+ENABLE_SHAREPOINT_SYNC=true
+SHAREPOINT_SITE_URL=https://yourtenant.sharepoint.com/sites/KnowledgeManagement
+SHAREPOINT_CLIENT_ID=your_client_id  # Can reuse AZURE_CLIENT_ID
+SHAREPOINT_CLIENT_SECRET=your_client_secret  # Can reuse AZURE_CLIENT_SECRET
 
 # Use managed identity in production
 USE_MANAGED_IDENTITY=false  # Set to true in production
@@ -357,6 +428,118 @@ kb = app.create_knowledge_base(
 ### Access Control Hierarchy
 
 1. **Admin Users**: Full access to all KBs (create, read, write, delete)
+2. **KB Owners**: Full access to their own KBs
+3. **Content Managers**: Can upload and manage documents in assigned KBs
+4. **Azure AD Group Members**: Read access to KBs assigned to their groups
+
+## SharePoint Permission Synchronization
+
+### Overview
+
+The application automatically synchronizes KB access policies with SharePoint permissions, ensuring consistent access control across both systems.
+
+### Synchronization Behavior
+
+1. **KB Creation**: When a KB is created, a SharePoint document library is automatically created and permissions are set based on the initial access policies.
+
+2. **Permission Updates**: When access policies are updated using `update_access_policies()`, the changes are automatically synchronized to SharePoint.
+
+3. **Automatic Sync**: The synchronization happens automatically in the background. No manual intervention is required.
+
+### Permission Mapping
+
+The application maps KB access levels to SharePoint permission levels:
+
+| KB Role | SharePoint Permission |
+|---------|----------------------|
+| Admin Users | Full Control |
+| KB Owner | Full Control |
+| Content Managers | Contribute |
+| Azure AD Group Members | Read |
+
+### Example: Creating KB with SharePoint Sync
+
+```python
+from app.main import KnowledgeManagementApp
+
+app = KnowledgeManagementApp()
+
+# Create KB - SharePoint library is created automatically
+kb = app.create_knowledge_base(
+    name="Product Documentation",
+    description="All product-related documentation",
+    owner_id="product-manager@example.com",
+    azure_ad_groups=[
+        {
+            'group_id': 'product-team',
+            'name': 'Product Team',
+            'object_id': '<azure-ad-object-id>',
+            'content_managers': ['pm@example.com']
+        }
+    ]
+)
+
+# SharePoint library created at:
+# https://yourtenant.sharepoint.com/sites/KnowledgeManagement/KB_<kb_id>
+print(f"SharePoint library: {kb.sharepoint_library_name}")
+print(f"Last sync: {kb.last_sharepoint_sync}")
+```
+
+### Example: Updating Permissions
+
+```python
+from app.models import AccessPolicy, AzureADGroup, AccessLevel
+
+# Add a new group with access
+new_group = AzureADGroup(
+    group_id='sales-team',
+    name='Sales Team',
+    object_id='<sales-group-object-id>'
+)
+
+new_policy = AccessPolicy(
+    azure_ad_group=new_group,
+    access_level=AccessLevel.READ,
+    content_managers=['sales-lead@example.com']
+)
+
+# Update access policies - SharePoint permissions sync automatically
+app.kb_manager.update_access_policies(
+    kb_id=kb.kb_id,
+    access_policies=[new_policy]
+)
+
+print(f"Permissions synced to SharePoint at: {kb.last_sharepoint_sync}")
+```
+
+### Verifying SharePoint Permissions
+
+You can verify that permissions were synced correctly:
+
+```python
+# Get current SharePoint permissions for the library
+if app.kb_manager.sharepoint_service:
+    permissions = app.kb_manager.sharepoint_service.get_library_permissions(
+        library_name=kb.sharepoint_library_name
+    )
+    
+    for perm in permissions:
+        print(f"{perm.principal_id}: {perm.role}")
+```
+
+### Importing Documents from SharePoint
+
+```python
+# Import existing documents from SharePoint library to KB
+documents = app.import_from_sharepoint(
+    kb_id=kb.kb_id,
+    imported_by="admin@example.com"
+)
+
+print(f"Imported {len(documents)} documents from SharePoint")
+for doc in documents:
+    print(f"  - {doc.filename} ({doc.size_bytes} bytes)")
+```
 2. **KB Owners**: Full access to their own KBs
 3. **Content Managers**: Can upload and manage documents in assigned KBs
 4. **Azure AD Group Members**: Read access to KBs assigned to their groups

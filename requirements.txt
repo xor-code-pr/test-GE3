@@ -4,6 +4,9 @@ azure-search-documents>=11.4.0
 azure-identity>=1.15.0
 azure-core>=1.29.0
 
+# SharePoint integration
+Office365-REST-Python-Client>=2.5.0
+
 # OpenAI for RAG
 openai>=1.10.0
 

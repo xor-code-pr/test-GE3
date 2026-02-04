@@ -37,6 +37,13 @@ class AzureConfig:
     client_id: Optional[str] = None
     client_secret: Optional[str] = None
     
+    # SharePoint configuration (optional)
+    sharepoint_site_url: Optional[str] = None
+    sharepoint_tenant_id: Optional[str] = None
+    sharepoint_client_id: Optional[str] = None
+    sharepoint_client_secret: Optional[str] = None
+    enable_sharepoint_sync: bool = False
+    
     # Managed Identity
     use_managed_identity: bool = True
     
@@ -53,6 +60,16 @@ class AzureConfig:
         
         if not self.search_endpoint:
             self.search_endpoint = f"https://{self.search_service_name}.search.windows.net"
+        
+        # Use same tenant_id for SharePoint if not specified
+        if not self.sharepoint_tenant_id and self.tenant_id:
+            self.sharepoint_tenant_id = self.tenant_id
+        
+        # Use same client credentials for SharePoint if not specified
+        if not self.sharepoint_client_id and self.client_id:
+            self.sharepoint_client_id = self.client_id
+        if not self.sharepoint_client_secret and self.client_secret:
+            self.sharepoint_client_secret = self.client_secret
 
 
 @dataclass
@@ -104,6 +121,12 @@ def load_config_from_env() -> AppConfig:
         tenant_id=os.getenv('AZURE_TENANT_ID', ''),
         client_id=os.getenv('AZURE_CLIENT_ID'),
         client_secret=os.getenv('AZURE_CLIENT_SECRET'),
+        # SharePoint configuration
+        sharepoint_site_url=os.getenv('SHAREPOINT_SITE_URL'),
+        sharepoint_tenant_id=os.getenv('SHAREPOINT_TENANT_ID'),
+        sharepoint_client_id=os.getenv('SHAREPOINT_CLIENT_ID'),
+        sharepoint_client_secret=os.getenv('SHAREPOINT_CLIENT_SECRET'),
+        enable_sharepoint_sync=os.getenv('ENABLE_SHAREPOINT_SYNC', 'false').lower() == 'true',
         use_managed_identity=os.getenv('USE_MANAGED_IDENTITY', 'true').lower() == 'true'
     )
     

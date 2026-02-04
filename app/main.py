@@ -128,6 +128,10 @@ class KnowledgeManagementApp:
     def list_knowledge_bases(self, user_id: str):
         """List all knowledge bases accessible by a user."""
         return self.kb_manager.list_knowledge_bases(user_id)
+    
+    def import_from_sharepoint(self, kb_id: str, imported_by: str):
+        """Import documents from SharePoint to a knowledge base."""
+        return self.kb_manager.import_from_sharepoint(kb_id, imported_by)
 
 
 def main():

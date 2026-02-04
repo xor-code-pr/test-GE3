@@ -55,6 +55,11 @@ class KnowledgeBase:
     created_at: datetime = field(default_factory=datetime.utcnow)
     updated_at: datetime = field(default_factory=datetime.utcnow)
     metadata: Dict = field(default_factory=dict)
+    # SharePoint integration fields
+    sharepoint_site_id: Optional[str] = None
+    sharepoint_library_name: Optional[str] = None
+    sharepoint_sync_enabled: bool = False
+    last_sharepoint_sync: Optional[datetime] = None
 
 
 @dataclass
