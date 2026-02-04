@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Knowledge Management System{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-md-12">
+        <h2><i class="fas fa-tachometer-alt"></i> Dashboard</h2>
+        <p class="text-muted">Welcome, {{ session.user_id }}! 
+            {% if is_admin %}<span class="badge bg-danger">Admin</span>{% endif %}
+        </p>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-12">
+        <a href="{{ url_for('create_kb') }}" class="btn btn-primary">
+            <i class="fas fa-plus-circle"></i> Create New Knowledge Base
+        </a>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-12">
+        <h3>Your Knowledge Bases</h3>
+        
+        {% if knowledge_bases %}
+            <div class="row row-cols-1 row-cols-md-3 g-4">
+                {% for kb in knowledge_bases %}
+                <div class="col">
+                    <div class="card h-100">
+                        <div class="card-body">
+                            <h5 class="card-title">
+                                <i class="fas fa-database"></i> {{ kb.name }}
+                            </h5>
+                            <p class="card-text">{{ kb.description }}</p>
+                            <p class="text-muted small">
+                                <i class="fas fa-user"></i> Owner: {{ kb.owner_id }}<br>
+                                <i class="fas fa-calendar"></i> Created: {{ kb.created_at.strftime('%Y-%m-%d') }}
+                            </p>
+                        </div>
+                        <div class="card-footer">
+                            <a href="{{ url_for('view_kb', kb_id=kb.kb_id) }}" class="btn btn-sm btn-primary">
+                                <i class="fas fa-eye"></i> View
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <div class="alert alert-info">
+                <i class="fas fa-info-circle"></i> You don't have access to any knowledge bases yet. 
+                <a href="{{ url_for('create_kb') }}">Create one now!</a>
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

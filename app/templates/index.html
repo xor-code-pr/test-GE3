@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+
+{% block title %}Home - Knowledge Management System{% endblock %}
+
+{% block content %}
+<div class="jumbotron text-center py-5">
+    <h1 class="display-4">
+        <i class="fas fa-brain"></i> Knowledge Management System
+    </h1>
+    <p class="lead">
+        RAG-Powered Knowledge Base with Azure Integration
+    </p>
+    <hr class="my-4">
+    <p>
+        Create knowledge bases, upload documents, and get intelligent answers using AI-powered retrieval augmented generation.
+    </p>
+    {% if not session.user_id %}
+        <a class="btn btn-primary btn-lg" href="{{ url_for('login') }}" role="button">
+            <i class="fas fa-sign-in-alt"></i> Get Started
+        </a>
+    {% else %}
+        <a class="btn btn-primary btn-lg" href="{{ url_for('dashboard') }}" role="button">
+            <i class="fas fa-tachometer-alt"></i> Go to Dashboard
+        </a>
+    {% endif %}
+</div>
+
+<div class="row mt-5">
+    <div class="col-md-4">
+        <div class="card h-100">
+            <div class="card-body text-center">
+                <i class="fas fa-database fa-3x text-primary mb-3"></i>
+                <h5 class="card-title">Create Knowledge Bases</h5>
+                <p class="card-text">
+                    Organize your documents into isolated knowledge bases with granular access control.
+                </p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card h-100">
+            <div class="card-body text-center">
+                <i class="fas fa-robot fa-3x text-success mb-3"></i>
+                <h5 class="card-title">AI-Powered Q&A</h5>
+                <p class="card-text">
+                    Ask questions and get intelligent answers powered by GPT-4 and semantic search.
+                </p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card h-100">
+            <div class="card-body text-center">
+                <i class="fas fa-shield-alt fa-3x text-warning mb-3"></i>
+                <h5 class="card-title">Secure & Scalable</h5>
+                <p class="card-text">
+                    Azure AD integration, role-based access control, and enterprise-grade security.
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-5">
+    <div class="col-12">
+        <h2 class="text-center mb-4">Features</h2>
+        <ul class="list-group">
+            <li class="list-group-item">
+                <i class="fas fa-check-circle text-success"></i> 
+                <strong>Retrieval Augmented Generation (RAG):</strong> Combine document retrieval with GPT-4 for accurate, context-aware answers
+            </li>
+            <li class="list-group-item">
+                <i class="fas fa-check-circle text-success"></i> 
+                <strong>Semantic Search:</strong> OpenAI embeddings for intelligent document similarity
+            </li>
+            <li class="list-group-item">
+                <i class="fas fa-check-circle text-success"></i> 
+                <strong>Azure Integration:</strong> Blob Storage for files, AI Search for indexing
+            </li>
+            <li class="list-group-item">
+                <i class="fas fa-check-circle text-success"></i> 
+                <strong>Access Control:</strong> Azure AD groups with content manager roles
+            </li>
+            <li class="list-group-item">
+                <i class="fas fa-check-circle text-success"></i> 
+                <strong>Document Management:</strong> Upload, index, and query documents automatically
+            </li>
+        </ul>
+    </div>
+</div>
+{% endblock %}

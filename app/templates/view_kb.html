@@ -1,0 +1,290 @@
+{% extends "base.html" %}
+
+{% block title %}{{ kb.name }} - Knowledge Management System{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-md-12">
+        <h2><i class="fas fa-database"></i> {{ kb.name }}</h2>
+        <p class="text-muted">{{ kb.description }}</p>
+        <div class="badge bg-info">KB ID: {{ kb.kb_id }}</div>
+        {% if is_content_manager %}
+            <div class="badge bg-success">Content Manager</div>
+        {% endif %}
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-12">
+        <ul class="nav nav-tabs" id="kbTabs" role="tablist">
+            {% if rag_enabled %}
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="ask-tab" data-bs-toggle="tab" data-bs-target="#ask" type="button">
+                    <i class="fas fa-question-circle"></i> Ask Question (RAG)
+                </button>
+            </li>
+            {% endif %}
+            <li class="nav-item" role="presentation">
+                <button class="nav-link {% if not rag_enabled %}active{% endif %}" id="search-tab" data-bs-toggle="tab" data-bs-target="#search" type="button">
+                    <i class="fas fa-search"></i> Search
+                </button>
+            </li>
+            {% if is_content_manager %}
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="upload-tab" data-bs-toggle="tab" data-bs-target="#upload" type="button">
+                    <i class="fas fa-upload"></i> Upload Documents
+                </button>
+            </li>
+            {% endif %}
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="info-tab" data-bs-toggle="tab" data-bs-target="#info" type="button">
+                    <i class="fas fa-info-circle"></i> Information
+                </button>
+            </li>
+        </ul>
+        <div class="tab-content p-3 border border-top-0" id="kbTabContent">
+            {% if rag_enabled %}
+            <div class="tab-pane fade show active" id="ask" role="tabpanel">
+                <h4><i class="fas fa-robot"></i> Ask a Question</h4>
+                <p class="text-muted">Get AI-powered answers based on the documents in this knowledge base.</p>
+                
+                <div class="mb-3">
+                    <textarea class="form-control" id="question" rows="3" placeholder="Enter your question here..."></textarea>
+                </div>
+                <button class="btn btn-primary" onclick="askQuestion()">
+                    <i class="fas fa-paper-plane"></i> Ask
+                </button>
+                
+                <div id="answer-section" class="mt-4" style="display:none;">
+                    <h5>Answer:</h5>
+                    <div class="card">
+                        <div class="card-body">
+                            <div id="answer-text"></div>
+                            <hr>
+                            <h6>Sources:</h6>
+                            <div id="sources-list"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+            
+            <div class="tab-pane fade {% if not rag_enabled %}show active{% endif %}" id="search" role="tabpanel">
+                <h4><i class="fas fa-search"></i> Search Documents</h4>
+                <p class="text-muted">Search for documents in this knowledge base.</p>
+                
+                <div class="input-group mb-3">
+                    <input type="text" class="form-control" id="searchQuery" placeholder="Enter search query...">
+                    <button class="btn btn-primary" onclick="searchKB()">
+                        <i class="fas fa-search"></i> Search
+                    </button>
+                </div>
+                
+                <div id="search-results" class="mt-3"></div>
+            </div>
+            
+            {% if is_content_manager %}
+            <div class="tab-pane fade" id="upload" role="tabpanel">
+                <h4><i class="fas fa-upload"></i> Upload Documents</h4>
+                <p class="text-muted">Upload documents to this knowledge base. They will be automatically indexed.</p>
+                
+                <form id="uploadForm">
+                    <div class="mb-3">
+                        <input class="form-control" type="file" id="fileInput" multiple>
+                        <div class="form-text">Supported formats: PDF, DOCX, TXT, MD, PPTX, XLSX</div>
+                    </div>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-upload"></i> Upload
+                    </button>
+                </form>
+                
+                <div id="upload-progress" class="mt-3" style="display:none;">
+                    <div class="progress">
+                        <div class="progress-bar" role="progressbar" style="width: 0%"></div>
+                    </div>
+                </div>
+                
+                <div id="upload-results" class="mt-3"></div>
+            </div>
+            {% endif %}
+            
+            <div class="tab-pane fade" id="info" role="tabpanel">
+                <h4><i class="fas fa-info-circle"></i> Knowledge Base Information</h4>
+                <table class="table">
+                    <tbody>
+                        <tr>
+                            <th>KB ID</th>
+                            <td>{{ kb.kb_id }}</td>
+                        </tr>
+                        <tr>
+                            <th>Name</th>
+                            <td>{{ kb.name }}</td>
+                        </tr>
+                        <tr>
+                            <th>Description</th>
+                            <td>{{ kb.description }}</td>
+                        </tr>
+                        <tr>
+                            <th>Owner</th>
+                            <td>{{ kb.owner_id }}</td>
+                        </tr>
+                        <tr>
+                            <th>Blob Container</th>
+                            <td>{{ kb.blob_container_name }}</td>
+                        </tr>
+                        <tr>
+                            <th>Search Index</th>
+                            <td>{{ kb.search_index_name }}</td>
+                        </tr>
+                        <tr>
+                            <th>Created</th>
+                            <td>{{ kb.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                        </tr>
+                        <tr>
+                            <th>Last Updated</th>
+                            <td>{{ kb.updated_at.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const kbId = "{{ kb.kb_id }}";
+
+function askQuestion() {
+    const question = document.getElementById('question').value;
+    if (!question.trim()) {
+        alert('Please enter a question');
+        return;
+    }
+    
+    const answerSection = document.getElementById('answer-section');
+    answerSection.style.display = 'block';
+    document.getElementById('answer-text').innerHTML = '<div class="spinner-border" role="status"><span class="visually-hidden">Loading...</span></div>';
+    
+    fetch(`/kb/${kbId}/ask`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({question: question})
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.error) {
+            document.getElementById('answer-text').innerHTML = `<div class="alert alert-danger">${data.error}</div>`;
+        } else {
+            document.getElementById('answer-text').innerHTML = `<p>${data.answer}</p>`;
+            
+            let sourcesHtml = '<ul class="list-group">';
+            data.sources.forEach((source, idx) => {
+                sourcesHtml += `<li class="list-group-item"><strong>Source ${idx+1}:</strong> ${source.text_preview}</li>`;
+            });
+            sourcesHtml += '</ul>';
+            document.getElementById('sources-list').innerHTML = sourcesHtml;
+        }
+    })
+    .catch(error => {
+        document.getElementById('answer-text').innerHTML = `<div class="alert alert-danger">Error: ${error}</div>`;
+    });
+}
+
+function searchKB() {
+    const query = document.getElementById('searchQuery').value;
+    if (!query.trim()) {
+        alert('Please enter a search query');
+        return;
+    }
+    
+    const resultsDiv = document.getElementById('search-results');
+    resultsDiv.innerHTML = '<div class="spinner-border" role="status"><span class="visually-hidden">Loading...</span></div>';
+    
+    fetch(`/kb/${kbId}/search`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({query: query})
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.error) {
+            resultsDiv.innerHTML = `<div class="alert alert-danger">${data.error}</div>`;
+        } else {
+            let html = '<h5>Search Results:</h5>';
+            if (data.results.length === 0) {
+                html += '<div class="alert alert-info">No results found.</div>';
+            } else {
+                html += '<div class="list-group">';
+                data.results.forEach(result => {
+                    html += `<div class="list-group-item">
+                        <h6>${result.filename}</h6>
+                        <p class="mb-1">Score: ${result.score.toFixed(2)}</p>
+                        <small>Document ID: ${result.document_id}</small>
+                    </div>`;
+                });
+                html += '</div>';
+            }
+            resultsDiv.innerHTML = html;
+        }
+    })
+    .catch(error => {
+        resultsDiv.innerHTML = `<div class="alert alert-danger">Error: ${error}</div>`;
+    });
+}
+
+document.getElementById('uploadForm')?.addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const fileInput = document.getElementById('fileInput');
+    const files = fileInput.files;
+    
+    if (files.length === 0) {
+        alert('Please select files to upload');
+        return;
+    }
+    
+    const progressDiv = document.getElementById('upload-progress');
+    const resultsDiv = document.getElementById('upload-results');
+    progressDiv.style.display = 'block';
+    resultsDiv.innerHTML = '';
+    
+    let uploaded = 0;
+    const total = files.length;
+    
+    Array.from(files).forEach(file => {
+        const formData = new FormData();
+        formData.append('file', file);
+        
+        fetch(`/kb/${kbId}/upload`, {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            uploaded++;
+            const progress = (uploaded / total) * 100;
+            document.querySelector('.progress-bar').style.width = progress + '%';
+            
+            if (data.error) {
+                resultsDiv.innerHTML += `<div class="alert alert-danger">Error uploading ${file.name}: ${data.error}</div>`;
+            } else {
+                resultsDiv.innerHTML += `<div class="alert alert-success">Successfully uploaded ${data.filename}</div>`;
+            }
+            
+            if (uploaded === total) {
+                setTimeout(() => {
+                    progressDiv.style.display = 'none';
+                    fileInput.value = '';
+                }, 1000);
+            }
+        })
+        .catch(error => {
+            uploaded++;
+            resultsDiv.innerHTML += `<div class="alert alert-danger">Error uploading ${file.name}: ${error}</div>`;
+        });
+    });
+});
+</script>
+{% endblock %}

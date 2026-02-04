@@ -8,6 +8,16 @@ from dataclasses import dataclass
 
 
 @dataclass
+class OpenAIConfig:
+    """OpenAI configuration for RAG."""
+    api_key: str
+    model: str = "gpt-4"
+    embedding_model: str = "text-embedding-ada-002"
+    temperature: float = 0.7
+    max_tokens: int = 1000
+
+
+@dataclass
 class AzureConfig:
     """Azure service configuration."""
     # Required fields
@@ -57,9 +67,18 @@ class AppConfig:
     # Azure configuration
     azure: AzureConfig
     
+    # OpenAI configuration
+    openai: Optional[OpenAIConfig] = None
+    
     # Application settings
     max_file_size_mb: int = 100
     allowed_file_types: List[str] = None
+    
+    # RAG settings
+    enable_rag: bool = True
+    chunk_size: int = 1000
+    chunk_overlap: int = 200
+    top_k_results: int = 5
     
     def __post_init__(self):
         """Set default allowed file types."""
@@ -88,9 +107,26 @@ def load_config_from_env() -> AppConfig:
         use_managed_identity=os.getenv('USE_MANAGED_IDENTITY', 'true').lower() == 'true'
     )
     
+    # OpenAI configuration
+    openai_config = None
+    openai_api_key = os.getenv('OPENAI_API_KEY')
+    if openai_api_key:
+        openai_config = OpenAIConfig(
+            api_key=openai_api_key,
+            model=os.getenv('OPENAI_MODEL', 'gpt-4'),
+            embedding_model=os.getenv('OPENAI_EMBEDDING_MODEL', 'text-embedding-ada-002'),
+            temperature=float(os.getenv('OPENAI_TEMPERATURE', '0.7')),
+            max_tokens=int(os.getenv('OPENAI_MAX_TOKENS', '1000'))
+        )
+    
     return AppConfig(
         admin_users=admin_users,
         database_connection_string=os.getenv('DATABASE_CONNECTION_STRING', 'sqlite:///knowledge_base.db'),
         azure=azure_config,
-        max_file_size_mb=int(os.getenv('MAX_FILE_SIZE_MB', '100'))
+        openai=openai_config,
+        max_file_size_mb=int(os.getenv('MAX_FILE_SIZE_MB', '100')),
+        enable_rag=os.getenv('ENABLE_RAG', 'true').lower() == 'true',
+        chunk_size=int(os.getenv('CHUNK_SIZE', '1000')),
+        chunk_overlap=int(os.getenv('CHUNK_OVERLAP', '200')),
+        top_k_results=int(os.getenv('TOP_K_RESULTS', '5'))
     )
