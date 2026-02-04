@@ -1,0 +1,25 @@
+# Azure SDK dependencies
+azure-storage-blob>=12.19.0
+azure-search-documents>=11.4.0
+azure-identity>=1.15.0
+azure-core>=1.29.0
+
+# Python standard libraries enhancements
+python-dotenv>=1.0.0
+
+# Optional: Web framework for API endpoints
+# flask>=3.0.0
+# fastapi>=0.109.0
+# uvicorn>=0.27.0
+
+# Optional: Database support
+# sqlalchemy>=2.0.0
+# psycopg2-binary>=2.9.0  # PostgreSQL
+# pymongo>=4.6.0  # MongoDB
+
+# Development dependencies (optional)
+# pytest>=8.0.0
+# pytest-cov>=4.1.0
+# black>=24.0.0
+# flake8>=7.0.0
+# mypy>=1.8.0
