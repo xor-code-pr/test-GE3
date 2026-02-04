@@ -540,9 +540,6 @@ print(f"Imported {len(documents)} documents from SharePoint")
 for doc in documents:
     print(f"  - {doc.filename} ({doc.size_bytes} bytes)")
 ```
-2. **KB Owners**: Full access to their own KBs
-3. **Content Managers**: Can upload and manage documents in assigned KBs
-4. **Azure AD Group Members**: Read access to KBs assigned to their groups
 
 ## Indexing Schema
 

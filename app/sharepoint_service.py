@@ -106,14 +106,22 @@ class SharePointService:
             
         Returns:
             SharePointSite object with library information
+            
+        Raises:
+            Exception: If library creation fails
+        
+        Note:
+            The library_name (internal name) uses 'KB_' + first 8 chars of kb_id
+            for uniqueness, while the library title uses the full kb_name for
+            better user experience in SharePoint UI.
         """
         try:
             client = self._get_client()
             web = client.web.get().execute_query()
             
             # Create a new document library
-            library_name = f"KB_{kb_id[:8]}"  # Shortened ID for library name
-            library_title = kb_name
+            library_name = f"KB_{kb_id[:8]}"  # Shortened ID for library internal name
+            library_title = kb_name  # Full name for display title
             
             # Check if library already exists
             lists = client.web.lists.filter(f"Title eq '{library_name}'").get().execute_query()
@@ -142,13 +150,8 @@ class SharePointService:
             
         except Exception as e:
             logger.error(f"Failed to create SharePoint library: {e}")
-            # Return a mock site for now to not break the flow
-            return SharePointSite(
-                site_id=f"mock-site-{kb_id}",
-                site_url=self.config.site_url,
-                site_name="Mock Site",
-                library_name=f"KB_{kb_id[:8]}"
-            )
+            # Re-raise the exception so calling code can handle it
+            raise
     
     def sync_permissions(
         self,
@@ -168,6 +171,9 @@ class SharePointService:
             
         Returns:
             True if successful, False otherwise
+            
+        Raises:
+            Exception: If permission sync fails critically
         """
         try:
             client = self._get_client()
@@ -196,8 +202,9 @@ class SharePointService:
             
         except Exception as e:
             logger.error(f"Failed to sync permissions: {e}")
-            # Return True to not break the flow (permissions can be set manually)
-            return True
+            # Return False to indicate failure but don't break the flow
+            # Permissions can be set manually in SharePoint if sync fails
+            return False
     
     def _add_permission(
         self,

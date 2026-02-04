@@ -102,14 +102,22 @@ class KnowledgeBaseManager:
                 )
                 kb.sharepoint_site_id = sp_site.site_id
                 kb.sharepoint_library_name = sp_site.library_name
-                kb.sharepoint_sync_enabled = True
                 
                 # Sync permissions to SharePoint
-                self._sync_permissions_to_sharepoint(kb)
+                sync_success = self._sync_permissions_to_sharepoint(kb)
                 
-                logger.info(f"Created SharePoint library for KB: {kb_id}")
+                # Only enable sync if both library creation and permission sync succeeded
+                kb.sharepoint_sync_enabled = sync_success
+                
+                if sync_success:
+                    logger.info(f"Created SharePoint library for KB: {kb_id}")
+                else:
+                    logger.warning(f"SharePoint library created but permission sync failed for KB: {kb_id}")
+                    
             except Exception as e:
                 logger.warning(f"Could not create SharePoint library: {e}")
+                # Don't set SharePoint fields if creation failed
+                kb.sharepoint_sync_enabled = False
         
         self.knowledge_bases[kb_id] = kb
         logger.info(f"Created knowledge base: {name} (ID: {kb_id})")
@@ -161,8 +169,11 @@ class KnowledgeBaseManager:
         # Sync permissions to SharePoint if enabled
         if self.sharepoint_service and kb.sharepoint_sync_enabled:
             try:
-                self._sync_permissions_to_sharepoint(kb)
-                kb.last_sharepoint_sync = datetime.utcnow()
+                sync_success = self._sync_permissions_to_sharepoint(kb)
+                if sync_success:
+                    kb.last_sharepoint_sync = datetime.utcnow()
+                else:
+                    logger.warning(f"SharePoint permission sync failed for KB: {kb_id}")
             except Exception as e:
                 logger.warning(f"Could not sync permissions to SharePoint: {e}")
         
@@ -279,15 +290,18 @@ class KnowledgeBaseManager:
             filters=f"kb_id eq '{kb_id}'"
         )
     
-    def _sync_permissions_to_sharepoint(self, kb: KnowledgeBase):
+    def _sync_permissions_to_sharepoint(self, kb: KnowledgeBase) -> bool:
         """
         Synchronize KB access policies to SharePoint permissions.
         
         Args:
             kb: Knowledge base with access policies
+            
+        Returns:
+            True if sync was successful, False otherwise
         """
         if not self.sharepoint_service or not kb.sharepoint_library_name:
-            return
+            return False
         
         # Prepare Azure AD groups
         azure_ad_groups = []
@@ -307,15 +321,20 @@ class KnowledgeBaseManager:
         # Remove duplicates
         all_content_managers = list(set(all_content_managers))
         
-        # Sync to SharePoint
-        self.sharepoint_service.sync_permissions(
+        # Sync to SharePoint and return result
+        sync_success = self.sharepoint_service.sync_permissions(
             library_name=kb.sharepoint_library_name,
             azure_ad_groups=azure_ad_groups,
             content_managers=all_content_managers,
             owner_id=kb.owner_id
         )
         
-        logger.info(f"Synced permissions to SharePoint for KB: {kb.kb_id}")
+        if sync_success:
+            logger.info(f"Synced permissions to SharePoint for KB: {kb.kb_id}")
+        else:
+            logger.warning(f"Failed to sync permissions to SharePoint for KB: {kb.kb_id}")
+        
+        return sync_success
     
     def import_from_sharepoint(
         self,
