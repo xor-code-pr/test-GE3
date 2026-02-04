@@ -64,6 +64,7 @@ docs/_build/
 tmp/
 temp/
 *.tmp
+temp_html/
 
 # Application specific
 example.txt
